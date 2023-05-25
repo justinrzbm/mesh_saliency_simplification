@@ -65,6 +65,11 @@ class a_3d_model:
         self.plane_equ_para=self.plane_equ_para.reshape(self.plane_equ_para.shape[0], self.plane_equ_para.shape[2])
     
     def calculate_Q_matrices(self):
+        # Apply saliency weight here to each Q matrix
+        alpha = np.percentile(self.saliency, 30)
+        print(f"The 30th percentile saliency is {alpha}")
+        weight = np.where(self.saliency > alpha, self.lam*self.saliency, self.saliency)
+
         self.Q_matrices = []
         for i in range(0, self.number_of_points):
             point_index=i+1
@@ -77,6 +82,5 @@ class a_3d_model:
                 p=p.reshape(1, len(p))
                 Q_temp=Q_temp+np.matmul(p.T, p)
 
-            # Apply saliency weight here to each Q matrix
-            Q_temp = Q_temp*self.saliency[i]*self.lam
+            Q_temp = Q_temp*weight[i]
             self.Q_matrices.append(Q_temp)
