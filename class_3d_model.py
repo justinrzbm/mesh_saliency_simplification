@@ -8,9 +8,21 @@
 import numpy as np
 
 class a_3d_model:
-    def __init__(self, filepath):
+    def __init__(self, filepath, saliency, lam=10.0):
         self.model_filepath=filepath
         self.load_obj_file()
+
+        if not type(saliency) == np.ndarray:
+            raise Exception('saliency has to be an ndarray.')
+        if not saliency.size == self.number_of_points:
+            raise Exception('saliency has to be of shape N.')
+        if not saliency.dtype == np.double:
+            raise Exception('saliency has to be of type double')
+        if not saliency.max()==1.0: # normalize
+            saliency /= saliency.max()
+        self.saliency=saliency
+        self.lam= lam
+
         self.calculate_plane_equations()
         self.calculate_Q_matrices()
         
@@ -64,4 +76,7 @@ class a_3d_model:
                 p=self.plane_equ_para[j,:]
                 p=p.reshape(1, len(p))
                 Q_temp=Q_temp+np.matmul(p.T, p)
+
+            # Apply saliency weight here to each Q matrix
+            Q_temp = Q_temp*self.saliency[i]*self.lam
             self.Q_matrices.append(Q_temp)

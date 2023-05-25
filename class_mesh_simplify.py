@@ -8,18 +8,23 @@ import sys
 
 from class_3d_model import a_3d_model
 
-# Mesh simplification calss
+# Mesh simplification class
 class mesh_simplify(a_3d_model):
-    def __init__(self, input_filepath, threshold, simplify_ratio):
+    def __init__(self, input_filepath, threshold, simplify_ratio, saliency):
         if simplify_ratio>1 or simplify_ratio<=0:
             sys.exit('Error: simplification ratio should be (0<r<=1).')
         if threshold<0:
             sys.exit('Error: threshold should be (>=0).')
-        super().__init__(input_filepath)
+        super().__init__(input_filepath, saliency)
         print('Import model: '+str(input_filepath))
         self.t=threshold
         self.ratio=simplify_ratio
+        self.saliency=saliency
     
+    # Apply saliency weighting to vertex error
+    def calculate_cost(self, vertex):
+        pass
+
     # Select all valid pairs.
     def generate_valid_pairs(self):
         self.dist_pairs = []

@@ -1,0 +1,8 @@
+'models/bunnysmall.obj'
+'models_simp/bunnysmall_simp_30_0.obj'
+
+python mesh_simplify.py -i models/bunnysmall.obj -o models_simp/bunnysmall_simp_30_0.obj -r 0.3 -t 0
+python plot.py -i models_simp/bunnysmall_simp_30_0.obj -o results/bunnysmall_simp_30_0.png
+
+python mesh_simplify.py -i models/bunnysmall.obj -o models_simp/bunnysmall_simp_10_0.obj -r 0.1 -t 0
+python plot.py -i models_simp/bunnysmall_simp_10_0.obj -o results/bunnysmall_simp_10_0.png
