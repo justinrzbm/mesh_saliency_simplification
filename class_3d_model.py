@@ -6,6 +6,7 @@
 # 3D model class
 
 import numpy as np
+from knn import kneighbors
 
 class a_3d_model:
     def __init__(self, filepath, saliency, lam=10.0):
@@ -51,6 +52,23 @@ class a_3d_model:
         self.edges=self.edges[unique_edges_locs,:]
     
     def calculate_plane_equations(self):
+        # Tangent plane estimation for point sampled surfaces
+        knn_points = kneighbors(self.points, k=5)
+        self.edge_tangents = []
+        for P in knn_points:
+            p, neighbors = p[0], p[1:]  # split into relevant point and neighbors
+            planes = []
+            for pj in neighbors:
+                ej = self.points[p] - self.points[pj]
+                bj = np.cross(ej, self.normals(p))
+                # "tangent" plane on this edje is spanned by ej and bj
+                tj = np.cross(ej, bj)
+                planes.append(tj)
+            self.edge_tangents.append(planes)
+        self.edge_tangents = np.array(self.edge_tangents)
+        
+
+        #### OLD Face based plane computation ####
         self.plane_equ_para = []
         for i in range(0, self.number_of_faces):
             # solving equation ax+by+cz+d=0, a^2+b^2+c^2=1
