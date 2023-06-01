@@ -22,7 +22,7 @@ from class_mesh_simplify import mesh_simplify
 
 
 # load saliency information for the mesh
-sal = np.load('saliency/bunny_sal.npy')
+sal = np.load('model_saliency/bunny_sal.npy')
 
 # Here, point and vertex are same terms
 # Read 3d model, initialization (points/vertices, faces, edges), compute the Q matrices for all the initial vertices

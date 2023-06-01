@@ -1,0 +1,5 @@
+numpy
+scipy
+pymesh
+trimesh
+quad_mesh_simplify
