@@ -6,6 +6,7 @@
 # 3D model class
 
 import numpy as np
+import open3d as o3d
 from knn import kneighbors
 
 class a_3d_model:
@@ -23,7 +24,10 @@ class a_3d_model:
             saliency /= saliency.max()
         self.saliency=saliency
         self.lam= lam
+        self.normals = None
 
+        # self.init_KDTree()
+        # self.estimate_normals()
         self.calculate_plane_equations()
         self.calculate_Q_matrices()
         
@@ -51,22 +55,30 @@ class a_3d_model:
         unique_edges_trans, unique_edges_locs=np.unique(self.edges[:,0]*(10**10)+self.edges[:,1], return_index=True)
         self.edges=self.edges[unique_edges_locs,:]
     
+    def estimate_normals(self, radius=0.1, max_k=16):
+        point_cloud = o3d.geometry.PointCloud()
+        point_cloud.points = o3d.utility.Vector3dVector(self.points)
+        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=max_k))
+        self.normals = np.asarray(point_cloud.normals)
+        assert self.normals.shape==(self.points.shape)
+
     def calculate_plane_equations(self):
         # Tangent plane estimation for point sampled surfaces
-        knn_points = kneighbors(self.points, k=5)
-        self.edge_tangents = []
-        for P in knn_points:
-            p, neighbors = p[0], p[1:]  # split into relevant point and neighbors
-            planes = []
-            for pj in neighbors:
-                ej = self.points[p] - self.points[pj]
-                bj = np.cross(ej, self.normals(p))
-                # "tangent" plane on this edje is spanned by ej and bj
-                tj = np.cross(ej, bj)
-                planes.append(tj)
-            self.edge_tangents.append(planes)
-        self.edge_tangents = np.array(self.edge_tangents)
-        
+        # TODO use KDTree for faster KNN queries
+        # knn_points = kneighbors(self.points, k=5)
+        # self.edge_tangents = []
+        # for P in knn_points:
+        #     p, neighbors = P[0], P[1:]  # split into relevant point and neighbors
+        #     planes = []
+        #     for pj in neighbors:
+        #         ej = self.points[p] - self.points[pj]
+        #         bj = np.cross(ej, self.normals[p])
+        #         # "tangent" plane on this edje is spanned by ej and bj
+        #         tj = np.cross(ej, bj)
+        #         planes.append(tj)
+        #     self.edge_tangents.append(planes)
+        # self.edge_tangents = np.array(self.edge_tangents)
+        # print(self.edge_tangents.shape)
 
         #### OLD Face based plane computation ####
         self.plane_equ_para = []
