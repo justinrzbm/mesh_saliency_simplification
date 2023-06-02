@@ -26,8 +26,8 @@ class a_3d_model:
         self.lam= lam
         self.normals = None
 
-        # self.init_KDTree()
-        # self.estimate_normals()
+        self.init_KDTree()
+        self.estimate_normals()
         self.calculate_plane_equations()
         self.calculate_Q_matrices()
         
@@ -55,44 +55,50 @@ class a_3d_model:
         unique_edges_trans, unique_edges_locs=np.unique(self.edges[:,0]*(10**10)+self.edges[:,1], return_index=True)
         self.edges=self.edges[unique_edges_locs,:]
     
-    def estimate_normals(self, radius=0.1, max_k=16):
-        point_cloud = o3d.geometry.PointCloud()
-        point_cloud.points = o3d.utility.Vector3dVector(self.points)
-        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=max_k))
-        self.normals = np.asarray(point_cloud.normals)
+    def init_KDTree(self):
+        pointcloud = o3d.geometry.PointCloud()
+        pointcloud.points = o3d.utility.Vector3dVector(self.points)
+        self.pc_tree = o3d.geometry.KDTreeFlann(pointcloud)
+
+    def estimate_normals(self, max_k=16):
+        '''
+        Estimate normals considering a knn-neighborhood
+        '''
+        # TODO estimate normals from tangent plane fitted at vertex
+        # self.normals = np.asarray(point_cloud.normals)
         assert self.normals.shape==(self.points.shape)
 
     def calculate_plane_equations(self):
         # Tangent plane estimation for point sampled surfaces
         # TODO use KDTree for faster KNN queries
-        # knn_points = kneighbors(self.points, k=5)
-        # self.edge_tangents = []
-        # for P in knn_points:
-        #     p, neighbors = P[0], P[1:]  # split into relevant point and neighbors
-        #     planes = []
-        #     for pj in neighbors:
-        #         ej = self.points[p] - self.points[pj]
-        #         bj = np.cross(ej, self.normals[p])
-        #         # "tangent" plane on this edje is spanned by ej and bj
-        #         tj = np.cross(ej, bj)
-        #         planes.append(tj)
-        #     self.edge_tangents.append(planes)
-        # self.edge_tangents = np.array(self.edge_tangents)
-        # print(self.edge_tangents.shape)
+        knn_points = kneighbors(self.points, k=5)
+        self.edge_tangents = []
+        for P in knn_points:
+            p, neighbors = P[0], P[1:]  # split into relevant point and neighbors
+            planes = []
+            for pj in neighbors:
+                ej = self.points[p] - self.points[pj]
+                bj = np.cross(ej, self.normals[p])
+                # "tangent" plane on this edje is spanned by ej and bj
+                tj = np.cross(ej, bj)
+                planes.append(tj)
+            self.edge_tangents.append(planes)
+        self.edge_tangents = np.array(self.edge_tangents)
+        print(self.edge_tangents.shape)
 
         #### OLD Face based plane computation ####
-        self.plane_equ_para = []
-        for i in range(0, self.number_of_faces):
-            # solving equation ax+by+cz+d=0, a^2+b^2+c^2=1
-            # set d=-1, give three points (x1, y1 ,z1), (x2, y2, z2), (x3, y3, z3)
-            point_1=self.points[self.faces[i,0]-1, :]
-            point_2=self.points[self.faces[i,1]-1, :]
-            point_3=self.points[self.faces[i,2]-1, :]
-            point_mat=np.array([point_1, point_2, point_3])
-            abc=np.matmul(np.linalg.inv(point_mat), np.array([[1],[1],[1]]))
-            self.plane_equ_para.append(np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5))
-        self.plane_equ_para=np.array(self.plane_equ_para)
-        self.plane_equ_para=self.plane_equ_para.reshape(self.plane_equ_para.shape[0], self.plane_equ_para.shape[2])
+        # self.plane_equ_para = []
+        # for i in range(0, self.number_of_faces):
+        #     # solving equation ax+by+cz+d=0, a^2+b^2+c^2=1
+        #     # set d=-1, give three points (x1, y1 ,z1), (x2, y2, z2), (x3, y3, z3)
+        #     point_1=self.points[self.faces[i,0]-1, :]
+        #     point_2=self.points[self.faces[i,1]-1, :]
+        #     point_3=self.points[self.faces[i,2]-1, :]
+        #     point_mat=np.array([point_1, point_2, point_3])
+        #     abc=np.matmul(np.linalg.inv(point_mat), np.array([[1],[1],[1]]))
+        #     self.plane_equ_para.append(np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5))
+        # self.plane_equ_para=np.array(self.plane_equ_para)
+        # self.plane_equ_para=self.plane_equ_para.reshape(self.plane_equ_para.shape[0], self.plane_equ_para.shape[2])
     
     def calculate_Q_matrices(self):
         # Apply saliency weight here to each Q matrix
