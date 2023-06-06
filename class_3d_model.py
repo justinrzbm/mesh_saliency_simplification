@@ -7,7 +7,7 @@
 
 import numpy as np
 import open3d as o3d
-from knn import kneighbors
+from knn import kneighbors_all
 
 class a_3d_model:
     def __init__(self, filepath, saliency, lam=10.0):
@@ -26,10 +26,15 @@ class a_3d_model:
         self.lam= lam
         self.normals = None
 
-        self.init_KDTree()
+        # use o3d PointCloud structure
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(self.points)
+        self.pc = pc
+
+        # self.init_KDTree()
         self.estimate_normals()
-        self.calculate_plane_equations()
-        self.calculate_Q_matrices()
+        self.calculate_Qs()
+        # self.calculate_Q_matrices()
         
     def load_obj_file(self):
         with open(self.model_filepath) as file:
@@ -56,37 +61,46 @@ class a_3d_model:
         self.edges=self.edges[unique_edges_locs,:]
     
     def init_KDTree(self):
-        pointcloud = o3d.geometry.PointCloud()
-        pointcloud.points = o3d.utility.Vector3dVector(self.points)
-        self.pc_tree = o3d.geometry.KDTreeFlann(pointcloud)
+        self.kdtree = o3d.geometry.KDTreeFlann(self.pc)
 
     def estimate_normals(self, max_k=16):
         '''
-        Estimate normals considering a knn-neighborhood
+        Estimate normals considering a hybrid knn-neighborhood
         '''
         # TODO estimate normals from tangent plane fitted at vertex
-        # self.normals = np.asarray(point_cloud.normals)
+        self.pc.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=max_k))
+        self.pc = self.pc.normalize_normals()
+        self.normals = np.asarray(self.pc.normals)
         assert self.normals.shape==(self.points.shape)
 
-    def calculate_plane_equations(self):
+    def calculate_Qs(self):
         # Tangent plane estimation for point sampled surfaces
         # TODO use KDTree for faster KNN queries
-        knn_points = kneighbors(self.points, k=5)
-        self.edge_tangents = []
-        for P in knn_points:
-            p, neighbors = P[0], P[1:]  # split into relevant point and neighbors
+        knn_idx = kneighbors_all(self.pc, k=5)
+
+        self.Q_matrices = []
+        for i, P in enumerate(knn_idx):
+            p, neighbors = P[0], P[1:]  # split into its own index and neighbors index
+            assert p == i               # double check that this KNN return is in order
             planes = []
+            Q = np.zeros((4,4))
             for pj in neighbors:
                 ej = self.points[p] - self.points[pj]
-                bj = np.cross(ej, self.normals[p])
-                # "tangent" plane on this edje is spanned by ej and bj
+                bj = np.cross(ej, self.pc.normals[p])
+                # "tangent" plane on this edge is spanned by ej and bj
                 tj = np.cross(ej, bj)
-                planes.append(tj)
-            self.edge_tangents.append(planes)
-        self.edge_tangents = np.array(self.edge_tangents)
-        print(self.edge_tangents.shape)
+                tj = tj / np.linalg.norm(tj)
+                # plane equation can be extracted from normal vector, since it satisfies a^2 + b^2 + c^2 = 1
+                # and d can be set to 0 for convenience, let it pass through the origin
+                plane = np.concatenate((tj, [0.0]))
+                planes.append(plane)
+                Q += np.outer(plane, plane) # This outer product is Kp for one plane
+                
+            self.Q_matrices.append(Q)
 
-        #### OLD Face based plane computation ####
+
+        ### OLD Face based plane computation
+        ### Finds one plane equation for each face, thus different shape than finding one equation for each edge tangent
         # self.plane_equ_para = []
         # for i in range(0, self.number_of_faces):
         #     # solving equation ax+by+cz+d=0, a^2+b^2+c^2=1
@@ -99,9 +113,12 @@ class a_3d_model:
         #     self.plane_equ_para.append(np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5))
         # self.plane_equ_para=np.array(self.plane_equ_para)
         # self.plane_equ_para=self.plane_equ_para.reshape(self.plane_equ_para.shape[0], self.plane_equ_para.shape[2])
+
     
     def calculate_Q_matrices(self):
+            ### OLD ###
         # Apply saliency weight here to each Q matrix
+        # parameters alpha and lambda defined as in Lee et al. (2005)
         alpha = np.percentile(self.saliency, 30)
         print(f"The 30th percentile saliency is {alpha}")
         weight = np.where(self.saliency > alpha, self.lam*self.saliency, self.saliency)
@@ -120,3 +137,14 @@ class a_3d_model:
 
             Q_temp = Q_temp*weight[i]
             self.Q_matrices.append(Q_temp)
+
+    def apply_saliency_weight(self):
+        assert len(self.Q_matrices) == len(self.points) and len(self.Q_matrices) == len(self.saliency), "Incorrect input dims"
+        # Apply saliency weight here to each Q matrix
+        # parameters alpha and lambda defined as in Lee et al. (2005)
+        alpha = np.percentile(self.saliency, 30)
+        print(f"The 30th percentile saliency is {alpha}")
+        weight = np.where(self.saliency > alpha, self.lam*self.saliency, self.saliency)
+
+        for i in range(len(self.Q_matrices)):
+            self.Q_matrices[i] *= weight[i]
