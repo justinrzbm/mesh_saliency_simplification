@@ -34,6 +34,7 @@ class a_3d_model:
         # self.init_KDTree()
         self.estimate_normals()
         self.calculate_Qs()
+        self.apply_saliency_weight()
         # self.calculate_Q_matrices()
         
     def load_obj_file(self):
@@ -95,7 +96,7 @@ class a_3d_model:
                 plane = np.concatenate((tj, [0.0]))
                 planes.append(plane)
                 Q += np.outer(plane, plane) # This outer product is Kp for one plane
-                
+
             self.Q_matrices.append(Q)
 
 
