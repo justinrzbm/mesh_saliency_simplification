@@ -44,11 +44,12 @@ class mesh_simplify(a_3d_model):
         find_same_loc=np.where(find_same==0)[0]
         self.dist_pairs=np.delete(self.dist_pairs, find_same_loc, axis=0)
         
-        if self.dist_pairs.size > 0:
-            self.valid_pairs=np.concatenate([self.edges,self.dist_pairs],axis=0)
-            self.valid_pairs=np.array(self.valid_pairs, dtype=int)
-        else:
-            self.valid_pairs=self.edges
+        self.valid_pairs = self.dist_pairs
+        # if self.dist_pairs.size > 0:
+        #     self.valid_pairs=np.concatenate([self.edges,self.dist_pairs],axis=0)
+        #     self.valid_pairs=np.array(self.valid_pairs, dtype=int)
+        # else:
+        #     self.valid_pairs=self.edges
         
         find_same=self.valid_pairs[:,1]-self.valid_pairs[:,0]
         find_same_loc=np.where(find_same==0)[0]
