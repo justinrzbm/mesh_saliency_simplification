@@ -12,7 +12,10 @@ from knn import kneighbors_all
 class a_3d_model:
     def __init__(self, filepath, saliency, lam=10.0):
         self.model_filepath=filepath
-        self.load_obj_file()
+        # self.load_obj_file()
+        # TODO
+        # self.points = ...
+        # self.number_of_points = ...
 
         if not type(saliency) == np.ndarray:
             raise Exception('saliency has to be an ndarray.')

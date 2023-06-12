@@ -20,10 +20,6 @@ class mesh_simplify(a_3d_model):
         self.t=threshold
         self.ratio=simplify_ratio
         self.saliency=saliency
-    
-    # Apply saliency weighting to vertex error
-    def calculate_cost(self, vertex):
-        pass
 
     # Select all valid pairs.
     def generate_valid_pairs(self):
@@ -40,21 +36,14 @@ class mesh_simplify(a_3d_model):
             else:
                 self.dist_pairs=np.concatenate([self.dist_pairs, current_valid_pairs], axis=0)
         self.dist_pairs=np.array(self.dist_pairs)
+        # loop removal
         find_same=self.dist_pairs[:,1]-self.dist_pairs[:,0]
         find_same_loc=np.where(find_same==0)[0]
         self.dist_pairs=np.delete(self.dist_pairs, find_same_loc, axis=0)
         
         self.valid_pairs = self.dist_pairs
-        # if self.dist_pairs.size > 0:
-        #     self.valid_pairs=np.concatenate([self.edges,self.dist_pairs],axis=0)
-        #     self.valid_pairs=np.array(self.valid_pairs, dtype=int)
-        # else:
-        #     self.valid_pairs=self.edges
         
-        find_same=self.valid_pairs[:,1]-self.valid_pairs[:,0]
-        find_same_loc=np.where(find_same==0)[0]
-        self.valid_pairs=np.delete(self.valid_pairs, find_same_loc, axis=0)
-        
+        # duplicates are removed 
         unique_valid_pairs_trans, unique_valid_pairs_loc=np.unique(self.valid_pairs[:,0]*(10**10)+self.valid_pairs[:,1], return_index=True)
         self.valid_pairs=self.valid_pairs[unique_valid_pairs_loc,:]
     
@@ -111,7 +100,6 @@ class mesh_simplify(a_3d_model):
     def iteratively_remove_least_cost_valid_pairs(self):
         self.new_point_count=0
         self.status_points=np.zeros(self.number_of_points)
-        self.status_faces=np.zeros(self.number_of_faces)
         while (self.number_of_points-self.new_point_count)>=self.ratio*(self.number_of_points):
             
             # current valid pair
@@ -128,34 +116,7 @@ class mesh_simplify(a_3d_model):
             # 0 means no change, -1 means the point is deleted
             # update v1, v2 to v_opt, then delete v2, keep v1
             self.status_points[v_2_location]=-1
-            
-            # set status of faces
-            # 0 means no change, -1 means the face will be deleted
-            v_1_in_faces_loc=np.where(self.faces==(v_1_location+1))
-            v_2_in_faces_loc=np.where(self.faces==(v_2_location+1))
-            v_1_2_in_one_face_loc = []
-            for item in v_2_in_faces_loc[0]:
-                if np.where(v_1_in_faces_loc[0]==item)[0].size>0:
-                    v_1_2_in_one_face_loc.append(item)
-            v_1_2_in_one_face_loc=np.array(v_1_2_in_one_face_loc)
-            if v_1_2_in_one_face_loc.size>=1:
-                self.status_faces[v_1_2_in_one_face_loc]=-1
-            
-            # update self.faces
-            # points of faces involving v1 and v2 are changed accordingly
-            # set v2 to v1
-            self.faces[v_2_in_faces_loc]=v_1_location+1
-            
-            # update edges
-            #edge_1=np.delete(self.faces[:,0:2], v_1_2_in_one_face_loc, axis=0)
-            #edge_2=np.delete(self.faces[:,1:], v_1_2_in_one_face_loc, axis=0)
-            #edge_3=np.delete(np.concatenate([self.faces[:,:1], self.faces[:,-1:]], axis=1), v_1_2_in_one_face_loc, axis=0)
-            #self.edges=np.concatenate([edge_1, edge_2, edge_3], axis=0)
-            
-            # update self.plane_equ_para
-            v_1_2_in_faces_loc=np.unique(np.append(v_1_in_faces_loc[0], v_2_in_faces_loc[0]))
-            self.update_plane_equation_parameters(v_1_2_in_faces_loc)
-            
+                                    
             # update self.Q_matrices
             self.update_Q(current_valid_pair-1, v_1_location)
             
@@ -175,30 +136,31 @@ class mesh_simplify(a_3d_model):
         print('Remaining: '+str(self.number_of_points-self.new_point_count)+' points')
         print('End\n')
         
-    def calculate_plane_equation_for_one_face(self, p1, p2, p3):
-        # input: p1, p2, p3 numpy.array, shape: (3, 1) or (1,3) or (3, )
-        # p1 ,p2, p3 (x, y, z) are three points on a face
-        # plane equ: ax+by+cz+d=0 a^2+b^2+c^2=1
-        # return: numpy.array (a, b, c, d), shape: (1,4)
-        p1=np.array(p1).reshape(3)
-        p2=np.array(p2).reshape(3)
-        p3=np.array(p3).reshape(3)
-        point_mat=np.array([p1, p2, p3])
-        abc=np.matmul(np.linalg.inv(point_mat), np.array([[1],[1],[1]]))
-        output=np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5)
-        output=output.reshape(4)
-        return output
+    # def calculate_plane_equation_for_one_face(self, p1, p2, p3):
+    #     # input: p1, p2, p3 numpy.array, shape: (3, 1) or (1,3) or (3, )
+    #     # p1 ,p2, p3 (x, y, z) are three points on a face
+    #     # plane equ: ax+by+cz+d=0 a^2+b^2+c^2=1
+    #     # return: numpy.array (a, b, c, d), shape: (1,4)
+    #     raise NotImplementedError
+    #     p1=np.array(p1).reshape(3)
+    #     p2=np.array(p2).reshape(3)
+    #     p3=np.array(p3).reshape(3)
+    #     point_mat=np.array([p1, p2, p3])
+    #     abc=np.matmul(np.linalg.inv(point_mat), np.array([[1],[1],[1]]))
+    #     output=np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5)
+    #     output=output.reshape(4)
+    #     return output
     
-    def update_plane_equation_parameters(self, need_updating_loc):
-        # input: need_updating_loc, a numpy.array, shape: (n, ), locations of self.plane_equ_para need updating
-        for i in need_updating_loc:
-            if self.status_faces[i]==-1:
-                self.plane_equ_para[i,:]=np.array([0,0,0,0]).reshape(1,4)
-            else:
-                point_1=self.points[self.faces[i,0]-1, :]
-                point_2=self.points[self.faces[i,1]-1, :]
-                point_3=self.points[self.faces[i,2]-1, :]
-                self.plane_equ_para[i,:]=self.calculate_plane_equation_for_one_face(point_1, point_2, point_3)
+    # def update_plane_equation_parameters(self, need_updating_loc):
+    #     # input: need_updating_loc, a numpy.array, shape: (n, ), locations of self.plane_equ_para need updating
+    #     for i in need_updating_loc:
+    #         if self.status_faces[i]==-1:
+    #             self.plane_equ_para[i,:]=np.array([0,0,0,0]).reshape(1,4)
+    #         else:
+    #             point_1=self.points[self.faces[i,0]-1, :]
+    #             point_2=self.points[self.faces[i,1]-1, :]
+    #             point_3=self.points[self.faces[i,2]-1, :]
+    #             self.plane_equ_para[i,:]=self.calculate_plane_equation_for_one_face(point_1, point_2, point_3)
     
     def update_Q(self, replace_locs, target_loc):
         # input: replace_locs, a numpy.array, shape: (2, ), locations of self.points need updating
