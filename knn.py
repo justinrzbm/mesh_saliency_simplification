@@ -50,8 +50,19 @@ def kneighbors_all(pointcloud, k:int=5):
     # KDTree must be created newly from this point cloud
     kdtree = o3d.geometry.KDTreeFlann(pointcloud)
     nn_idx = []
-    for point in pointcloud.points:
+    for i, point in enumerate(pointcloud.points):
         indices = kneighbors(kdtree, point, k)
+        indices = list(indices)
+        if i != indices[0]:
+            # want to return indices in order: find the index that should belong at the front and swap it
+            try:
+                swapidx = indices.index(i)
+            except ValueError:
+                raise Exception(f'KNN is not returning properly for index {i}: indices={indices}')
+            temp = indices[0]
+            indices[0] = indices[swapidx]
+            indices[swapidx] = temp
+            print(f"not in order at index {i}: {indices}")
         nn_idx.append(indices)
     nn_idx = np.array(nn_idx)
     return nn_idx

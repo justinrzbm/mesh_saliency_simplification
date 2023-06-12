@@ -5,8 +5,10 @@
 
 import numpy as np
 import sys
+import open3d as o3d
 
 from class_3d_model import a_3d_model
+from knn import kneighbors_all
 
 # Mesh simplification class
 class mesh_simplify(a_3d_model):
@@ -23,25 +25,34 @@ class mesh_simplify(a_3d_model):
 
     # Select all valid pairs.
     def generate_valid_pairs(self):
-        self.dist_pairs = []
-        for i in range(0, self.number_of_points):
-            current_point_location=i+1
-            current_point=self.points[i,:]
-            current_point_to_others_dist=(np.sum((self.points-current_point)**2,axis=1))**0.5
-            valid_pairs_location=np.where(current_point_to_others_dist<=self.t)[0]+1
-            valid_pairs_location=valid_pairs_location.reshape(len(valid_pairs_location),1)
-            current_valid_pairs=np.concatenate([current_point_location*np.ones((valid_pairs_location.shape[0],1)),valid_pairs_location],axis=1)
-            if i==0:
-                self.dist_pairs=current_valid_pairs
-            else:
-                self.dist_pairs=np.concatenate([self.dist_pairs, current_valid_pairs], axis=0)
-        self.dist_pairs=np.array(self.dist_pairs)
+        dist_pairs = []
+        nn_idx = kneighbors_all(self.pc)
+        k = len(nn_idx[0])
+        for row in nn_idx:
+            for j in range(1, k):
+                dist_pairs.append((row[0], row[j]))
+        dist_pairs = np.array(dist_pairs)
+
+        # dist_pairs = []
+        # for i in range(0, self.number_of_points):
+        #     current_point_location=i+1
+        #     current_point=self.points[i,:]
+        #     current_point_to_others_dist=(np.sum((self.points-current_point)**2,axis=1))**0.5
+        #     valid_pairs_location=np.where(current_point_to_others_dist<=self.t)[0]+1
+        #     valid_pairs_location=valid_pairs_location.reshape(len(valid_pairs_location),1)
+        #     current_valid_pairs=np.concatenate([current_point_location*np.ones((valid_pairs_location.shape[0],1)),valid_pairs_location],axis=1)
+        #     if i==0:
+        #         dist_pairs=current_valid_pairs
+        #     else:
+        #         dist_pairs=np.concatenate([dist_pairs, current_valid_pairs], axis=0)
+
+        dist_pairs=np.array(dist_pairs)
         # loop removal
-        find_same=self.dist_pairs[:,1]-self.dist_pairs[:,0]
+        find_same=dist_pairs[:,1]-dist_pairs[:,0]
         find_same_loc=np.where(find_same==0)[0]
-        self.dist_pairs=np.delete(self.dist_pairs, find_same_loc, axis=0)
+        dist_pairs=np.delete(dist_pairs, find_same_loc, axis=0)
         
-        self.valid_pairs = self.dist_pairs
+        self.valid_pairs = dist_pairs
         
         # duplicates are removed 
         unique_valid_pairs_trans, unique_valid_pairs_loc=np.unique(self.valid_pairs[:,0]*(10**10)+self.valid_pairs[:,1], return_index=True)
@@ -118,7 +129,14 @@ class mesh_simplify(a_3d_model):
             self.status_points[v_2_location]=-1
                                     
             # update self.Q_matrices
-            self.update_Q(current_valid_pair-1, v_1_location)
+            # self.update_Q(current_valid_pair-1, v_1_location)
+            # Horribly inefficient: reinitialize point cloud object and kdtree for reduced point set, recalculate all normals and all Qs
+            self.generate_new_pointcloud()
+            pc = o3d.geometry.PointCloud()
+            pc.points = o3d.utility.Vector3dVector(self.points)
+            self.pc = pc
+            self.estimate_normals(max_k=min(self.number_of_points//2, 16))
+            self.calculate_Qs(update_idx=[]) # very slow to recompute all
             
             # update self.valid_pairs, self.v_optimal, and self.cost
             self.update_valid_pairs_v_optimal_and_cost(v_1_location)
@@ -162,19 +180,19 @@ class mesh_simplify(a_3d_model):
     #             point_3=self.points[self.faces[i,2]-1, :]
     #             self.plane_equ_para[i,:]=self.calculate_plane_equation_for_one_face(point_1, point_2, point_3)
     
-    def update_Q(self, replace_locs, target_loc):
-        # input: replace_locs, a numpy.array, shape: (2, ), locations of self.points need updating
-        # input: target_loc, a number, location of self.points need updating
-        face_set_index=np.where(self.faces==target_loc+1)[0]
-        Q_temp=np.zeros((4,4))
+    # def update_Q(self, replace_locs, target_loc):
+    #     # input: replace_locs, a numpy.array, shape: (2, ), locations of self.points need updating
+    #     # input: target_loc, a number, location of self.points need updating
+    #     face_set_index=np.where(self.faces==target_loc+1)[0]
+    #     Q_temp=np.zeros((4,4))
         
-        for j in face_set_index:
-            p=self.plane_equ_para[j,:]
-            p=p.reshape(1, len(p))
-            Q_temp=Q_temp+np.matmul(p.T, p)
+    #     for j in face_set_index:
+    #         p=self.plane_equ_para[j,:]
+    #         p=p.reshape(1, len(p))
+    #         Q_temp=Q_temp+np.matmul(p.T, p)
         
-        for i in replace_locs:
-            self.Q_matrices[i]=Q_temp
+    #     for i in replace_locs:
+    #         self.Q_matrices[i]=Q_temp
     
     def update_valid_pairs_v_optimal_and_cost(self, target_loc):
         # input: target_loc, a number, location of self.points need updating
@@ -248,29 +266,17 @@ class mesh_simplify(a_3d_model):
         self.new_point=self.v_optimal[0,:]
         self.new_valid_pair=self.valid_pairs[0,:]
     
-    # Generate the simplified 3d model (points/vertices, faces)
-    def generate_new_3d_model(self):
+    # Generate the simplified 3d pointcloud (points/vertices)
+    def generate_new_pointcloud(self):
         point_serial_number=np.arange(self.points.shape[0])+1
         points_to_delete_locs=np.where(self.status_points==-1)[0]
         self.points=np.delete(self.points, points_to_delete_locs, axis=0)
         point_serial_number=np.delete(point_serial_number, points_to_delete_locs)
         point_serial_number_after_del=np.arange(self.points.shape[0])+1
-        
-        faces_to_delete_locs=np.where(self.status_faces==-1)[0]
-        self.faces=np.delete(self.faces, faces_to_delete_locs, axis=0)
-        
-        for i in point_serial_number_after_del:
-            point_loc_in_face=np.where(self.faces==point_serial_number[i-1])
-            self.faces[point_loc_in_face]=i
+        # self.Q_matrices = 
         
         self.number_of_points=self.points.shape[0]
-        self.number_of_faces=self.faces.shape[0]
     
     def output(self, output_filepath):
-        with open(output_filepath, 'w') as file_obj:
-            file_obj.write('# '+str(self.number_of_points)+' vertices, '+str(self.number_of_faces)+' faces\n')
-            for i in range(self.number_of_points):
-                file_obj.write('v '+str(self.points[i,0])+' '+str(self.points[i,1])+' '+str(self.points[i,2])+'\n')
-            for i in range(self.number_of_faces):
-                file_obj.write('f '+str(self.faces[i,0])+' '+str(self.faces[i,1])+' '+str(self.faces[i,2])+'\n')
-        print('Output simplified model: '+str(output_filepath))
+        np.save(output_filepath, self.points)
+        print('Output simplified point cloud: '+str(output_filepath))

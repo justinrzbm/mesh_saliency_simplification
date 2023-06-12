@@ -11,11 +11,8 @@ from knn import kneighbors_all
 
 class a_3d_model:
     def __init__(self, filepath, saliency, lam=10.0):
-        self.model_filepath=filepath
-        # self.load_obj_file()
-        # TODO
-        # self.points = ...
-        # self.number_of_points = ...
+        self.input_filepath=filepath
+        self.load_pc_from_obj()
 
         if not type(saliency) == np.ndarray:
             raise Exception('saliency has to be an ndarray.')
@@ -40,6 +37,26 @@ class a_3d_model:
         self.apply_saliency_weight()
         # self.calculate_Q_matrices()
         
+    def load_npy_file(self):
+        self.points = np.load(self.input_filepath)
+        self.number_of_points = len(self.points)
+
+    def load_pc_from_obj(self):
+        with open(self.input_filepath) as file:
+            self.points = []
+            while 1:
+                line = file.readline()
+                if not line:
+                    break
+                strs = line.split(" ")
+                if strs[0] == "v":
+                    self.points.append((float(strs[1]), float(strs[2]), float(strs[3])))
+                if strs[0] == "f":
+                    pass
+        self.points=np.array(self.points)
+        self.number_of_points=self.points.shape[0]
+
+
     def load_obj_file(self):
         with open(self.model_filepath) as file:
             self.points = []
@@ -77,13 +94,15 @@ class a_3d_model:
         self.normals = np.asarray(self.pc.normals)
         assert self.normals.shape==(self.points.shape)
 
-    def calculate_Qs(self):
+    def calculate_Qs(self, update_idx:list=None):
         # Tangent plane estimation for point sampled surfaces
-        # TODO use KDTree for faster KNN queries
         knn_idx = kneighbors_all(self.pc, k=5)
+        
 
         self.Q_matrices = []
         for i, P in enumerate(knn_idx):
+            if update_idx!=None and i not in update_idx:
+                continue    # skip all other points
             p, neighbors = P[0], P[1:]  # split into its own index and neighbors index
             assert p == i               # double check that this KNN return is in order
             planes = []
@@ -101,6 +120,7 @@ class a_3d_model:
                 Q += np.outer(plane, plane) # This outer product is Kp for one plane
 
             self.Q_matrices.append(Q)
+        pass
 
 
         ### OLD Face based plane computation
