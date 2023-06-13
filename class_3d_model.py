@@ -33,6 +33,7 @@ class a_3d_model:
 
         # self.init_KDTree()
         self.estimate_normals()
+        self.Q_matrices = [None for i in range(self.number_of_points)]
         self.calculate_Qs()
         self.apply_saliency_weight()
         # self.calculate_Q_matrices()
@@ -98,10 +99,14 @@ class a_3d_model:
         # Tangent plane estimation for point sampled surfaces
         knn_idx = kneighbors_all(self.pc, k=5)
         
+        # recompute for all vertices near the contraction
+        if update_idx != None:
+            update_group = []       # non-unique collection
+            for vertex in update_idx:
+                update_group.extend(knn_idx[vertex])
 
-        self.Q_matrices = []
         for i, P in enumerate(knn_idx):
-            if update_idx!=None and i not in update_idx:
+            if update_idx!=None and i not in update_group:
                 continue    # skip all other points
             p, neighbors = P[0], P[1:]  # split into its own index and neighbors index
             assert p == i               # double check that this KNN return is in order
@@ -119,7 +124,7 @@ class a_3d_model:
                 planes.append(plane)
                 Q += np.outer(plane, plane) # This outer product is Kp for one plane
 
-            self.Q_matrices.append(Q)
+            self.Q_matrices[i]=Q
         pass
 
 

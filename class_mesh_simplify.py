@@ -67,8 +67,8 @@ class mesh_simplify(a_3d_model):
         number_of_valid_pairs=self.valid_pairs.shape[0]
         for i in range(0, number_of_valid_pairs):
             current_valid_pair=self.valid_pairs[i,:]
-            v_1_location=current_valid_pair[0]-1
-            v_2_location=current_valid_pair[1]-1
+            v_1_location=current_valid_pair[0]
+            v_2_location=current_valid_pair[1]
             # find Q_1
             Q_1=self.Q_matrices[v_1_location]
             # find Q_2
@@ -115,8 +115,8 @@ class mesh_simplify(a_3d_model):
             
             # current valid pair
             current_valid_pair=self.new_valid_pair
-            v_1_location=current_valid_pair[0]-1 # point location in self.points
-            v_2_location=current_valid_pair[1]-1
+            v_1_location=current_valid_pair[0] # point location in self.points (previously index shifted by 1 [-1 to correct])
+            v_2_location=current_valid_pair[1]
             
             # update self.points
             # put the top optimal vertex(point) into the sequence of points
@@ -130,13 +130,13 @@ class mesh_simplify(a_3d_model):
                                     
             # update self.Q_matrices
             # self.update_Q(current_valid_pair-1, v_1_location)
-            # Horribly inefficient: reinitialize point cloud object and kdtree for reduced point set, recalculate all normals and all Qs
+            # Inefficient: reinitialize point cloud object and kdtree for reduced point set, recalculate all normals
             self.generate_new_pointcloud()
             pc = o3d.geometry.PointCloud()
             pc.points = o3d.utility.Vector3dVector(self.points)
             self.pc = pc
             self.estimate_normals(max_k=min(self.number_of_points//2, 16))
-            self.calculate_Qs(update_idx=[]) # very slow to recompute all
+            self.calculate_Qs(update_idx=[v_1_location, v_2_location])
             
             # update self.valid_pairs, self.v_optimal, and self.cost
             self.update_valid_pairs_v_optimal_and_cost(v_1_location)
@@ -202,8 +202,8 @@ class mesh_simplify(a_3d_model):
         v_1_loc_in_valid_pairs=np.where(self.valid_pairs==self.new_valid_pair[0])
         v_2_loc_in_valid_pairs=np.where(self.valid_pairs==self.new_valid_pair[1])
         
-        self.valid_pairs[v_1_loc_in_valid_pairs]=target_loc+1
-        self.valid_pairs[v_2_loc_in_valid_pairs]=target_loc+1
+        self.valid_pairs[v_1_loc_in_valid_pairs]=target_loc
+        self.valid_pairs[v_2_loc_in_valid_pairs]=target_loc
         
         delete_locs = []
         for item in v_1_loc_in_valid_pairs[0]:
@@ -229,11 +229,11 @@ class mesh_simplify(a_3d_model):
     
     def update_optimal_contraction_pairs_and_cost(self, target_loc):
         # input: target_loc, a number, location of self.points need updating
-        v_target_loc_in_valid_pairs=np.where(self.valid_pairs==target_loc+1)[0]
+        v_target_loc_in_valid_pairs=np.where(self.valid_pairs==target_loc)[0]
         for i in v_target_loc_in_valid_pairs:
             current_valid_pair=self.valid_pairs[i,:]
-            v_1_location=current_valid_pair[0]-1
-            v_2_location=current_valid_pair[1]-1
+            v_1_location=current_valid_pair[0]
+            v_2_location=current_valid_pair[1]
             # find Q_1
             Q_1=self.Q_matrices[v_1_location]
             # find Q_2
@@ -273,7 +273,7 @@ class mesh_simplify(a_3d_model):
         self.points=np.delete(self.points, points_to_delete_locs, axis=0)
         point_serial_number=np.delete(point_serial_number, points_to_delete_locs)
         point_serial_number_after_del=np.arange(self.points.shape[0])+1
-        self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]
+        self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]   # changes indices
         self.number_of_points=self.points.shape[0]
         assert len(self.Q_matrices) == self.number_of_points
     
