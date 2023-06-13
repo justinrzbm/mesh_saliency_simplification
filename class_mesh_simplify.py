@@ -133,7 +133,7 @@ class mesh_simplify(a_3d_model):
             # Inefficient: reinitialize point cloud object and kdtree for reduced point set, recalculate all normals
             self.generate_new_pointcloud()
             pc = o3d.geometry.PointCloud()
-            pc.points = o3d.utility.Vector3dVector(self.points)
+            pc.points = o3d.utility.Vector3dVector(self.points_reduced)
             self.pc = pc
             self.estimate_normals(max_k=min(self.number_of_points//2, 16))
             self.calculate_Qs(update_idx=[v_1_location, v_2_location])
@@ -270,12 +270,13 @@ class mesh_simplify(a_3d_model):
     def generate_new_pointcloud(self):
         point_serial_number=np.arange(self.points.shape[0])+1
         points_to_delete_locs=np.where(self.status_points==-1)[0]
-        self.points=np.delete(self.points, points_to_delete_locs, axis=0)
+        self.points_reduced=np.delete(self.points, points_to_delete_locs, axis=0)
         point_serial_number=np.delete(point_serial_number, points_to_delete_locs)
         point_serial_number_after_del=np.arange(self.points.shape[0])+1
-        self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]   # changes indices
+        self.Q_matrices = [self.Q_matrices[i] if i not in points_to_delete_locs else None for i in range(len(self.Q_matrices))]   # preserve indices
         self.number_of_points=self.points.shape[0]
-        assert len(self.Q_matrices) == self.number_of_points
+        # self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]   # changes indices
+        # assert len(self.Q_matrices) == self.number_of_points
     
     def output(self, output_filepath):
         np.save(output_filepath, self.points)
