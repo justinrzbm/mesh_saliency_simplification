@@ -273,9 +273,9 @@ class mesh_simplify(a_3d_model):
         self.points=np.delete(self.points, points_to_delete_locs, axis=0)
         point_serial_number=np.delete(point_serial_number, points_to_delete_locs)
         point_serial_number_after_del=np.arange(self.points.shape[0])+1
-        # self.Q_matrices = 
-        
+        self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]
         self.number_of_points=self.points.shape[0]
+        assert len(self.Q_matrices) == self.number_of_points
     
     def output(self, output_filepath):
         np.save(output_filepath, self.points)
