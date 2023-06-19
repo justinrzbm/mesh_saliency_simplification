@@ -34,9 +34,8 @@ class a_3d_model:
         # self.init_KDTree()
         self.estimate_normals()
         self.Q_matrices = [None for i in range(self.number_of_points)]
-        self.calculate_Qs()
+        self.calculate_Qs(init=True)
         self.apply_saliency_weight()
-        # self.calculate_Q_matrices()
         
     def load_npy_file(self):
         self.points = np.load(self.input_filepath)
@@ -93,9 +92,13 @@ class a_3d_model:
         self.pc.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=max_k))
         self.pc = self.pc.normalize_normals()
         self.normals = np.asarray(self.pc.normals)
-        assert self.normals.shape==(self.points.shape)
+        assert self.normals.shape[0]==(self.number_of_points)
 
-    def calculate_Qs(self, update_idx:list=None):
+    def calculate_Qs(self, update_idx:list=None, init=False):
+        if init:
+            points = self.points
+        else:
+            points = self.points_reduced
         # Tangent plane estimation for point sampled surfaces
         knn_idx = kneighbors_all(self.pc, k=5)
         
@@ -113,7 +116,7 @@ class a_3d_model:
             planes = []
             Q = np.zeros((4,4))
             for pj in neighbors:
-                ej = self.points[p] - self.points[pj]
+                ej = points[p] - points[pj]
                 bj = np.cross(ej, self.pc.normals[p])
                 # "tangent" plane on this edge is spanned by ej and bj
                 tj = np.cross(ej, bj)

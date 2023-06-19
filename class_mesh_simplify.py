@@ -22,6 +22,7 @@ class mesh_simplify(a_3d_model):
         self.t=threshold
         self.ratio=simplify_ratio
         self.saliency=saliency
+        self.points_reduced = self.points[:]   # copy all starting points into shrinking set of points
 
     # Select all valid pairs.
     def generate_valid_pairs(self):
@@ -129,8 +130,9 @@ class mesh_simplify(a_3d_model):
             self.status_points[v_2_location]=-1
                                     
             # update self.Q_matrices
-            # self.update_Q(current_valid_pair-1, v_1_location)
-            # Inefficient: reinitialize point cloud object and kdtree for reduced point set, recalculate all normals
+            # OLD: self.update_Q(current_valid_pair-1, v_1_location)
+            # Reinitialize point cloud object and kdtree for reduced point set, recalculate all normals ***This redundant operation is very slow in comparison, but o3d has no point cloud "removal"
+            # self.points still contains the correctly indexed point set
             self.generate_new_pointcloud()
             pc = o3d.geometry.PointCloud()
             pc.points = o3d.utility.Vector3dVector(self.points_reduced)
@@ -274,8 +276,8 @@ class mesh_simplify(a_3d_model):
         point_serial_number=np.delete(point_serial_number, points_to_delete_locs)
         point_serial_number_after_del=np.arange(self.points.shape[0])+1
         self.Q_matrices = [self.Q_matrices[i] if i not in points_to_delete_locs else None for i in range(len(self.Q_matrices))]   # preserve indices
-        self.number_of_points=self.points.shape[0]
         # self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]   # changes indices
+        self.number_of_points=self.points_reduced.shape[0]
         # assert len(self.Q_matrices) == self.number_of_points
     
     def output(self, output_filepath):
