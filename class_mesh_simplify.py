@@ -23,6 +23,7 @@ class mesh_simplify(a_3d_model):
         self.ratio=simplify_ratio
         self.saliency=saliency
         self.points_reduced = self.points[:]   # copy all starting points into shrinking set of points
+        self.point_serial_number=np.arange(self.points.shape[0]) # to keep track of mapping
 
     # Select all valid pairs.
     def generate_valid_pairs(self):
@@ -111,14 +112,14 @@ class mesh_simplify(a_3d_model):
     # until existing points = ratio * original points
     def iteratively_remove_least_cost_valid_pairs(self):
         self.new_point_count=0
-        self.status_points=np.zeros(self.number_of_points)
         while (self.number_of_points-self.new_point_count)>=self.ratio*(self.number_of_points):
+            self.status_points=np.zeros(len(self.points))  # moved inside loop since deletion takes place every time
             
             # current valid pair
             current_valid_pair=self.new_valid_pair
-            v_1_location=current_valid_pair[0] # point location in self.points (previously index shifted by 1 [-1 to correct])
+            v_1_location=current_valid_pair[0] # point location in self.points (previously index shifted by 1 [was -1 to correct])
             v_2_location=current_valid_pair[1]
-            
+
             # update self.points
             # put the top optimal vertex(point) into the sequence of points
             self.points[v_1_location,:]=self.new_point.reshape(1,3)
@@ -137,8 +138,9 @@ class mesh_simplify(a_3d_model):
             pc = o3d.geometry.PointCloud()
             pc.points = o3d.utility.Vector3dVector(self.points_reduced)
             self.pc = pc
+
             self.estimate_normals(max_k=min(self.number_of_points//2, 16))
-            self.calculate_Qs(update_idx=[v_1_location, v_2_location])
+            self.calculate_Qs(update_idx=[v_1_location])
             
             # update self.valid_pairs, self.v_optimal, and self.cost
             self.update_valid_pairs_v_optimal_and_cost(v_1_location)
@@ -155,33 +157,7 @@ class mesh_simplify(a_3d_model):
         print('Simplification: '+str(100*(self.number_of_points-self.new_point_count)/(self.number_of_points+self.new_point_count))+'%')
         print('Remaining: '+str(self.number_of_points-self.new_point_count)+' points')
         print('End\n')
-        
-    # def calculate_plane_equation_for_one_face(self, p1, p2, p3):
-    #     # input: p1, p2, p3 numpy.array, shape: (3, 1) or (1,3) or (3, )
-    #     # p1 ,p2, p3 (x, y, z) are three points on a face
-    #     # plane equ: ax+by+cz+d=0 a^2+b^2+c^2=1
-    #     # return: numpy.array (a, b, c, d), shape: (1,4)
-    #     raise NotImplementedError
-    #     p1=np.array(p1).reshape(3)
-    #     p2=np.array(p2).reshape(3)
-    #     p3=np.array(p3).reshape(3)
-    #     point_mat=np.array([p1, p2, p3])
-    #     abc=np.matmul(np.linalg.inv(point_mat), np.array([[1],[1],[1]]))
-    #     output=np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5)
-    #     output=output.reshape(4)
-    #     return output
-    
-    # def update_plane_equation_parameters(self, need_updating_loc):
-    #     # input: need_updating_loc, a numpy.array, shape: (n, ), locations of self.plane_equ_para need updating
-    #     for i in need_updating_loc:
-    #         if self.status_faces[i]==-1:
-    #             self.plane_equ_para[i,:]=np.array([0,0,0,0]).reshape(1,4)
-    #         else:
-    #             point_1=self.points[self.faces[i,0]-1, :]
-    #             point_2=self.points[self.faces[i,1]-1, :]
-    #             point_3=self.points[self.faces[i,2]-1, :]
-    #             self.plane_equ_para[i,:]=self.calculate_plane_equation_for_one_face(point_1, point_2, point_3)
-    
+            
     # def update_Q(self, replace_locs, target_loc):
     #     # input: replace_locs, a numpy.array, shape: (2, ), locations of self.points need updating
     #     # input: target_loc, a number, location of self.points need updating
@@ -270,16 +246,17 @@ class mesh_simplify(a_3d_model):
     
     # Generate the simplified 3d pointcloud (points/vertices)
     def generate_new_pointcloud(self):
-        point_serial_number=np.arange(self.points.shape[0])+1
+        # point_serial_number=np.arange(self.points_reduced.shape[0])   # moved to init
         points_to_delete_locs=np.where(self.status_points==-1)[0]
-        self.points_reduced=np.delete(self.points, points_to_delete_locs, axis=0)
-        point_serial_number=np.delete(point_serial_number, points_to_delete_locs)
-        point_serial_number_after_del=np.arange(self.points.shape[0])+1
+        serial_to_del=int(np.argwhere(self.point_serial_number==points_to_delete_locs))
+        self.point_serial_number=np.delete(self.point_serial_number, serial_to_del)
+        self.points_reduced=np.delete(self.points_reduced, serial_to_del, axis=0)
         self.Q_matrices = [self.Q_matrices[i] if i not in points_to_delete_locs else None for i in range(len(self.Q_matrices))]   # preserve indices
         # self.Q_matrices = [self.Q_matrices[i] for i in range(len(self.Q_matrices)) if i not in points_to_delete_locs]   # changes indices
         self.number_of_points=self.points_reduced.shape[0]
         # assert len(self.Q_matrices) == self.number_of_points
+        assert len(self.point_serial_number) == self.number_of_points
     
     def output(self, output_filepath):
-        np.save(output_filepath, self.points)
+        np.save(output_filepath, self.points_reduced)
         print('Output simplified point cloud: '+str(output_filepath))

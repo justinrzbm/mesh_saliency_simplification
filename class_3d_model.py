@@ -35,7 +35,7 @@ class a_3d_model:
         self.estimate_normals()
         self.Q_matrices = [None for i in range(self.number_of_points)]
         self.calculate_Qs(init=True)
-        self.apply_saliency_weight()
+        # self.apply_saliency_weight()
         
     def load_npy_file(self):
         self.points = np.load(self.input_filepath)
@@ -95,10 +95,30 @@ class a_3d_model:
         assert self.normals.shape[0]==(self.number_of_points)
 
     def calculate_Qs(self, update_idx:list=None, init=False):
+        '''
+        Calculates Q matrices for all points, or just those in `update_idx` if provided. 
+
+        Arguments:
+            `update_idx` (List[int]): List of points to recalculate Q matrix for. If None, entire point set will be calculated. 
+            `init` (bool): Flag if initializing point cloud object (self.points_reduced doesn't exist yet)
+        Returns: 
+            None
+        '''
         if init:
             points = self.points
         else:
             points = self.points_reduced
+
+        # get reduced serial index for all update_idx
+        if update_idx!=None:
+            update_idx_serial= []
+            for idx in update_idx:
+                mapped_idx = np.argwhere(self.point_serial_number==update_idx[idx])
+                assert mapped_idx.size==1
+                update_idx_serial.append(int(mapped_idx))
+            update_idx = update_idx_serial
+
+
         # Tangent plane estimation for point sampled surfaces
         knn_idx = kneighbors_all(self.pc, k=5)
         
@@ -126,49 +146,13 @@ class a_3d_model:
                 plane = np.concatenate((tj, [0.0]))
                 planes.append(plane)
                 Q += np.outer(plane, plane) # This outer product is Kp for one plane
-
-            self.Q_matrices[i]=Q
+            
+            if init:
+                self.Q_matrices[i] = Q  # update all of them in order
+            else:
+                self.Q_matrices[self.point_serial_number[i]]=Q    # update at particular (unreduced) index
         pass
 
-
-        ### OLD Face based plane computation
-        ### Finds one plane equation for each face, thus different shape than finding one equation for each edge tangent
-        # self.plane_equ_para = []
-        # for i in range(0, self.number_of_faces):
-        #     # solving equation ax+by+cz+d=0, a^2+b^2+c^2=1
-        #     # set d=-1, give three points (x1, y1 ,z1), (x2, y2, z2), (x3, y3, z3)
-        #     point_1=self.points[self.faces[i,0]-1, :]
-        #     point_2=self.points[self.faces[i,1]-1, :]
-        #     point_3=self.points[self.faces[i,2]-1, :]
-        #     point_mat=np.array([point_1, point_2, point_3])
-        #     abc=np.matmul(np.linalg.inv(point_mat), np.array([[1],[1],[1]]))
-        #     self.plane_equ_para.append(np.concatenate([abc.T, np.array(-1).reshape(1, 1)], axis=1)/(np.sum(abc**2)**0.5))
-        # self.plane_equ_para=np.array(self.plane_equ_para)
-        # self.plane_equ_para=self.plane_equ_para.reshape(self.plane_equ_para.shape[0], self.plane_equ_para.shape[2])
-
-    
-    def calculate_Q_matrices(self):
-            ### OLD ###
-        # Apply saliency weight here to each Q matrix
-        # parameters alpha and lambda defined as in Lee et al. (2005)
-        alpha = np.percentile(self.saliency, 30)
-        print(f"The 30th percentile saliency is {alpha}")
-        weight = np.where(self.saliency > alpha, self.lam*self.saliency, self.saliency)
-
-        self.Q_matrices = []
-        for i in range(0, self.number_of_points):
-            point_index=i+1
-            # each point is the solution of the intersection of a set of planes
-            # find the planes for point_index
-            face_set_index=np.where(self.faces==point_index)[0]
-            Q_temp=np.zeros((4,4))
-            for j in face_set_index:
-                p=self.plane_equ_para[j,:]
-                p=p.reshape(1, len(p))
-                Q_temp=Q_temp+np.matmul(p.T, p)
-
-            Q_temp = Q_temp*weight[i]
-            self.Q_matrices.append(Q_temp)
 
     def apply_saliency_weight(self):
         assert len(self.Q_matrices) == len(self.points) and len(self.Q_matrices) == len(self.saliency), "Incorrect input dims"

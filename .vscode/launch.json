@@ -12,7 +12,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-i", "models/bunnysmall.obj", "-o", "models_simp/bunnysmall_simp_10_0.obj", "-r", "0.1", "-t", "0"]
+            "args": ["-i", "models/bunnysmall.obj", "-o", "models_simp/bunnysmall_simp_10_0.obj", "-r", "0.5", "-t", "0"]
         }
     ]
 }

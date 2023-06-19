@@ -42,7 +42,7 @@ model.calculate_optimal_contraction_pairs_and_cost()
 model.iteratively_remove_least_cost_valid_pairs()
 
 # Generate the simplified 3d model (points/vertices, faces)
-model.generate_new_pointcloud()
+# model.generate_new_pointcloud()
 
 # Output the model to output_filepath
 model.output(output_filepath)
