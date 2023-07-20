@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import time
 from curvature import mod_discrete_mean_curvature_measure
 from pca_saliency import local_curvature_pca
+from guo_saliency import saliency_covariance_descriptors
 
 filename = 'bunny.obj'
 CURVATURE_R = 4
@@ -50,12 +51,14 @@ def main():
     start_time = time.time()
     print(f"{filename}: Processing {len(mesh.vertices)} vertices")
 
-    curvature = local_curvature_pca(mesh, curvature_r=CURVATURE_R, entropy_r=ENTROPY_R, nbins=NBINS, compute_entropy=False)
-    lce = local_curvature_pca(mesh, curvature_r=CURVATURE_R, entropy_r=ENTROPY_R, nbins=NBINS, compute_entropy=True)
-    # saliency = mod
+    # curvature = local_curvature_pca(mesh, curvature_r=CURVATURE_R, entropy_r=ENTROPY_R, nbins=NBINS, compute_entropy=False)
+    # lce = local_curvature_pca(mesh, curvature_r=CURVATURE_R, entropy_r=ENTROPY_R, nbins=NBINS, compute_entropy=True)
+    points = mesh.vertices
+    sal = saliency_covariance_descriptors(points)
+
     print("--- %.6s seconds runtime ---" % (time.time() - start_time))
-    scatter3d(mesh.vertices, cmap=curvature, cmap2=lce)
-    np.save("bunny_sal", curvature)
+    # scatter3d(mesh.vertices, cmap=curvature, cmap2=lce)
+    np.save("bunny_sal", sal)
     pass
 
 if __name__=='__main__':
