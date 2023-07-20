@@ -7,7 +7,7 @@ from curvature import mod_discrete_mean_curvature_measure
 from pca_saliency import local_curvature_pca
 from guo_saliency import saliency_covariance_descriptors
 
-filename = 'bunny.obj'
+filename = 'compute_saliency/bunny.obj'
 CURVATURE_R = 4
 ENTROPY_R = 8
 NBINS = 8
@@ -39,7 +39,7 @@ def scatter3d(points, cmap=None, cmap2=None):
             ax2.scatter(*points.T, s=size, c=cmap2, cmap='viridis')
         else:
             ax2.scatter(*points.T, s=size, ec='w', c='blue')
-    plt.savefig(f"results/lce_cr{CURVATURE_R}_er{ENTROPY_R}_nb{NBINS}.png")
+    plt.savefig(f"compute_saliency/results/lce_cr{CURVATURE_R}_er{ENTROPY_R}_nb{NBINS}.png")
     plt.show()
 
 def main():
@@ -58,7 +58,7 @@ def main():
 
     print("--- %.6s seconds runtime ---" % (time.time() - start_time))
     # scatter3d(mesh.vertices, cmap=curvature, cmap2=lce)
-    np.save("bunny_sal", sal)
+    np.save("/compute_saliency/bunny_sal", sal)
     pass
 
 if __name__=='__main__':
