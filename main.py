@@ -3,9 +3,9 @@ import trimesh.curvature
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-from curvature import mod_discrete_mean_curvature_measure
-from pca_saliency import local_curvature_pca
-from guo_saliency import saliency_covariance_descriptors
+from compute_saliency.curvature import mod_discrete_mean_curvature_measure
+from compute_saliency.pca_saliency import local_curvature_pca
+from compute_saliency.guo_saliency import saliency_covariance_descriptors
 
 filename = 'compute_saliency/bunny.obj'
 CURVATURE_R = 4

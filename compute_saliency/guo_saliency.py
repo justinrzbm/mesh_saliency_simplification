@@ -1,9 +1,8 @@
 import numpy as np
 import open3d as o3d
 import trimesh
-import os
-print(os.listdir())
 from knn import kneighbors_all
+
 
 def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     # max r relative to scale of point cloud
@@ -39,5 +38,5 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
 
 def get_curvature(pc):
     knn = kneighbors_all(pc)
-
+    
     pass
