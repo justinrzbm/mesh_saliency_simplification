@@ -15,9 +15,7 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     pc.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=max_k))
     pc = pc.normalize_normals()
     normals = np.asarray(pc.normals)
-    assert normals.shape == (points.shape[0], 3)
 
-    print(normals)
     # compute curvature
     curvature = get_curvature(pc)
     # # Convert point cloud to mesh
@@ -33,10 +31,22 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     # curvature = curvature/max(curvature)    # normalize
 
     # Make feature vector at each point (Nx, Ny, Nz, K)
+    F = np.zeros((len(pc.points), 4))
+    for i in range(len(F)):
+        F[i, 0:3] = normals[i]
+        F[i, 3] = curvature[i]
 
     pass
 
 def get_curvature(pc):
     knn = kneighbors_all(pc)
-    
-    pass
+    # define normal at this point as mean of neighbouring normals for stability
+    guassian_curvature = np.empty(len(pc.points), dtype=np.double)
+    normals = np.asarray(pc.normals)
+    for i in range(len(pc.points)):
+        C = np.cov(normals[knn[i]].T)
+        eigenvalues = np.linalg.eig(C)[0]
+        guassian_curvature[i] = np.prod(eigenvalues)
+
+    guassian_curvature /= np.max(guassian_curvature)    # normalize these values
+    return guassian_curvature
