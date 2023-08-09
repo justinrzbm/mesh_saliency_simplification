@@ -58,8 +58,7 @@ def main():
 
     print("--- %.6s seconds runtime ---" % (time.time() - start_time))
     # scatter3d(mesh.vertices, cmap=curvature, cmap2=lce)
-    np.save("/compute_saliency/bunny_sal", sal)
-    pass
+    # np.save("/compute_saliency/bunny_sal", sal)
 
 if __name__=='__main__':
     main()

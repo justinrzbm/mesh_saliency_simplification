@@ -2,7 +2,7 @@ import numpy as np
 import open3d as o3d
 import trimesh
 from knn import kneighbors_all
-
+from sklearn import decomposition
 
 def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     # max r relative to scale of point cloud
@@ -64,9 +64,15 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
             S[i,j,:] = alpha * M[:,j]
         for j in range(4):
             S[i,j+4,:] = -alpha * M[:,j]
-    
 
-    pass
+    # PCA
+    feature_vectors = S.reshape((len(C), 32))
+    pca = decomposition.PCA(n_components=8)
+    pca_result = pca.fit(feature_vectors)
+    transformed_feature = pca.transform(feature_vectors)
+    print(transformed_feature.shape)
+
+    # return S
 
 def get_curvature(pc, knn):
     # define normal at this point as mean of neighbouring normals for stability
