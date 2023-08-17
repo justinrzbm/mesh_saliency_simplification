@@ -70,9 +70,9 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     pca = decomposition.PCA(n_components=8)
     pca_result = pca.fit(feature_vectors)
     transformed_feature = pca.transform(feature_vectors)
-    print(transformed_feature.shape)
+    sal = np.sum(np.abs(transformed_feature), axis=1)
 
-    # return S
+    return sal
 
 def get_curvature(pc, knn):
     # define normal at this point as mean of neighbouring normals for stability
