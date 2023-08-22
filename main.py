@@ -12,7 +12,7 @@ CURVATURE_R = 4
 ENTROPY_R = 8
 NBINS = 8
 
-def scatter3d_twoplots(points, cmap=None, cmap2=None):
+def scatter3d_twoplots(points, title='saliency', cmap=None, cmap2=None):
     if cmap is not None:
         assert len(cmap.shape)==1 and cmap.shape[0] == points.shape[0], \
             f"cmap of size {cmap.shape} does not match size of x: {points.shape}"
@@ -39,10 +39,10 @@ def scatter3d_twoplots(points, cmap=None, cmap2=None):
             ax2.scatter(*points.T, s=size, c=cmap2, cmap='viridis')
         else:
             ax2.scatter(*points.T, s=size, ec='w', c='blue')
-    plt.savefig(f"compute_saliency/results/lce_cr{CURVATURE_R}_er{ENTROPY_R}_nb{NBINS}.png")
+    plt.savefig(f"compute_saliency/results/{title}_lce_cr{CURVATURE_R}_er{ENTROPY_R}_nb{NBINS}.png")
     plt.show()
 
-def scatter3d(points, cmap=None):
+def scatter3d(points, title='saliency', cmap=None):
     if cmap is not None:
         assert len(cmap.shape)==1 and cmap.shape[0] == points.shape[0], \
             f"cmap of size {cmap.shape} does not match size of x: {points.shape}"
@@ -53,13 +53,13 @@ def scatter3d(points, cmap=None):
     size = 20
     edgec = 'none'
     ax.view_init(elev=110., azim=-90)
-    # ax.set_title(f'Point Saliency')
+    ax.set_title(title)
     if cmap is not None:
         ax.scatter(*points.T, s=size, c=cmap, cmap='viridis')
     else:
         ax.scatter(*points.T, s=size, ec='w', c='blue')
 
-    plt.savefig(f"compute_saliency/saliency_results/saliency.png")
+    plt.savefig(f"compute_saliency/saliency_results/{title}.png")
     plt.show()
 
 
@@ -78,8 +78,9 @@ def main():
     sal = saliency_covariance_descriptors(points)
 
     print("--- %.6s seconds runtime ---" % (time.time() - start_time))
-    scatter3d(mesh.vertices, cmap=sal)
-    np.save("compute_saliency/bunny_sal", sal)
+    title='guo_flattened'
+    scatter3d(mesh.vertices, title=title, cmap=sal)
+    np.save(f"compute_saliency/{title}", sal)
 
 if __name__=='__main__':
     main()

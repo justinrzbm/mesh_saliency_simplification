@@ -15,7 +15,7 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     pc.points = o3d.utility.Vector3dVector(points)
 
     # Estimate normal vectors
-    pc.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=max_k))
+    pc.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.02, max_nn=max_k))
     pc = pc.normalize_normals()
     normals = np.asarray(pc.normals)
 
@@ -65,10 +65,19 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
         for j in range(4):
             S[i,j+4,:] = -alpha * M[:,j]
 
+
     # PCA
+    # The paper is a bit confusing on how PCA is applied to the collection of sigma sets.
+    # What should be implemented, a PCA dimensionality reduciton across all points down to 8 principal components,
+    # (each the size of one point feature 8x4)
+    # Then, the L1 norm should be taken of the feature of a given point in the global PCA coordinate system to 
+    # calculate the saliency of that point.
+    # We do this distance calculation by flattening the feature into a 1x32 vector, but the paper does not explain
+    # how they specifically did this comparison.
+    # In addition, we are assuming that sklearn.decomposition.PCA calculates the point average feature as mean(S, axis=0)
     feature_vectors = S.reshape((len(C), 32))
     pca = decomposition.PCA(n_components=8)
-    pca_result = pca.fit(feature_vectors)
+    pca.fit(feature_vectors)
     transformed_feature = pca.transform(feature_vectors)
     sal = np.sum(np.abs(transformed_feature), axis=1)
 
