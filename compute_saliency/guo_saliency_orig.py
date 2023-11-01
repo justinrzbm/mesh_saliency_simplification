@@ -23,7 +23,6 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
 
     # compute curvature
     curvature = get_curvature(pc, knn)
-
     # # Convert point cloud to mesh
     # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pc, ball_r)
     # # discard (second?) return item
@@ -52,9 +51,9 @@ def saliency_covariance_descriptors(points, max_k=16, r_scale=10):
     # average covariance matrix over the neighborhood
     C_ = np.zeros_like(C)
     for i in range(len(F)):
-        C_[i] = 1/(len(knn[i]) + 1e-6) * np.sum(C[knn[i]], axis=0)
+        C_[i] = 1/(len(knn[i])) * np.sum(C[knn[i]], axis=0)
     C = C_
-    
+
     # Compute Sigma Set
     S = np.zeros((len(C), 8, 4))
     alpha = np.sqrt(4)
@@ -90,44 +89,17 @@ def get_curvature(pc, knn):
     normals = np.asarray(pc.normals)
     for i in range(len(pc.points)):        
         C = np.cov(normals[knn[i]].T)
-        # C = C + np.eye(C.shape[0]) * (1e-5)        
-        # eigenvalues = np.linalg.eig(C)[0]
+        C = C + np.eye(C.shape[0]) * (1e-5)        
+        eigenvalues = np.linalg.eig(C)[0]
         # print(type(eigenvalues))
 
         # if np.iscomplexobj(eigenvalues):
         #     C = C + np.eye(C.shape[0]) * (1e-10)        
         #     eigenvalues = np.linalg.eig(C)[0]
         #     print(eigenvalues)
-        eigenvalues = compute_eigenvalues(C)
 
         guassian_curvature[i] = np.prod(eigenvalues)
 
-    guassian_curvature /= (np.max(guassian_curvature) + 1e-10)    # normalize these values
+    guassian_curvature /= np.max(guassian_curvature)    # normalize these values
     return guassian_curvature
 
-
-def compute_eigenvalues(A, max_iterations=1000, tol=1e-10):
-    """
-    Compute the eigenvalues of a real symmetric matrix using the QR algorithm.
-
-    Parameters:
-        - A: 2D numpy array (real symmetric matrix)
-        - max_iterations: maximum number of iterations for the QR algorithm
-        - tol: tolerance for convergence
-    
-    Returns:
-        Eigenvalues of A
-    """
-    n, m = A.shape
-    assert n == m, "Matrix must be square"
-    
-    for _ in range(max_iterations):
-        Q, R = np.linalg.qr(A)  # QR decomposition
-        A = R @ Q  # Compute the new matrix
-        
-        # Check convergence
-        off_diag = np.sum(np.abs(A * (1 - np.eye(n))))
-        if off_diag < tol:
-            break
-
-    return np.diag(A)
