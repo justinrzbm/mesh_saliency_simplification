@@ -114,7 +114,7 @@ def main():
     _, indices = torch.topk(point_errors, int(points.size(0) * simplify_ratio), largest=False)
     simplified_points = points[indices]
     print(simplified_points.shape)
-    # plot_3d_point_cloud(simplified_points)
+    plot_3d_point_cloud(simplified_points)
 
     print("--- %.6s seconds runtime ---" % (time.time() - start_time))
 
